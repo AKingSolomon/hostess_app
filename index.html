@@ -46,7 +46,7 @@
   .clock .t{ font-size:20px; color:var(--brass-bright); display:block; }
 
   .toprow{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
-  .floor-tabs{ display:flex; gap:10px; flex-wrap:wrap; }
+  .floor-tabs{ display:flex; gap:10px; flex-wrap:wrap; width: 100%}
   .floor-tab{
     display:flex; align-items:center; gap:9px;
     background:var(--panel); border:1px solid var(--wall); border-radius:3px;
@@ -79,7 +79,7 @@
   }
 
   .stage{ display:flex; gap:18px; align-items:flex-start; }
-  .room-col{ flex:1; min-width:0; }
+  .room-col{ flex:1; min-width:0; width:100%}
   .room-shell{
     background:
       linear-gradient(var(--wall-soft) 1px, transparent 1px) 0 0/100% 40px,
@@ -199,26 +199,35 @@
   }
 
   @media (max-width: 600px){
-    .wrap{ padding:16px 12px 28px; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
-    header{ padding-bottom:14px; margin-bottom:16px; }
+    .wrap{ padding:14px 6px 28px; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+    header{ padding-bottom:14px; margin-bottom:16px; padding-left:8px; padding-right:8px; }
     h1{ font-size:26px; }
     .clock{ text-align:left; }
     .clock .t{ font-size:17px; }
     .house-status{ font-size:11.5px; line-height:1.5; }
 
-    .toprow{ flex-direction:column; align-items:stretch; gap:10px; }
-    .floor-tabs{ flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; scrollbar-width:none; }
+    .toprow{ flex-direction:column; align-items:stretch; gap:10px; padding-left:8px; padding-right:8px; }
+    .floor-tabs{
+      flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
+      min-width:0; padding-bottom:4px; padding-right:24px; scroll-padding-right:24px;
+      scroll-snap-type:x proximity;
+      scrollbar-width:none;
+    }
     .floor-tabs::-webkit-scrollbar{ display:none; }
-    .floor-tab{ flex-shrink:0; min-height:44px; padding:10px 14px; }
+    .floor-tab{ flex:0 0 auto; min-height:44px; padding:10px 14px; scroll-snap-align:start; }
     .mode-toggle{ width:100%; }
     .mode-btn{ flex:1; min-height:44px; }
 
-    .summary{ gap:6px; }
+    .summary{ gap:6px; padding-left:8px; padding-right:8px; }
     .chip{ font-size:11px; padding:6px 10px; }
+    .edit-hint{ margin-left:8px; margin-right:8px; }
 
-    .room{ aspect-ratio: 3/4; }
-    .add-row{ flex-direction:column; }
-    .add-btn{ width:100%; justify-content:center; min-height:46px; }
+    .room-shell{ padding:8px; border-radius:8px; }
+    .room-name{ padding-left:4px; }
+    .room{ aspect-ratio: 1/1; }
+
+    .add-row{ flex-direction:row; flex-wrap:wrap; justify-content:center; padding:0 8px; }
+    .add-btn{ flex:0 1 auto; justify-content:center; min-height:46px; }
 
     .tbl-label{ font-size:12px; }
     .tbl-seats{ font-size:8.5px; }
@@ -291,14 +300,14 @@
     dining: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 2v8M6 2c-1.5 0-2.5 1-2.5 2.5S4.5 7 6 7M6 2c1.5 0 2.5 1 2.5 2.5S7.5 7 6 7M6 10v12"/><path d="M17 2v6a2 2 0 0 1-2 2v0a2 2 0 0 1-2-2V2M15 10v12"/></svg>',
     terrace: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 21c4-2 6-6 6-10a6 6 0 0 0-6-6 6 6 0 0 0-6 6c0 4 2 8 6 10Z"/><path d="M12 12v9"/></svg>',
     bar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 3h14l-6.5 8v8M12 19H9M12 19h3M5 3l4 5M19 3l-4 5"/></svg>',
-    skyline: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 2l2.2 5.6L20 9l-4.6 3.8L16.6 19 12 15.8 7.4 19l1.2-6.2L4 9l5.8-1.4L12 2Z"/></svg>'
+    skyline: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 2l2.2 5.6L20 9l-4.6 3.8L16.6 19 12 15.8 7.4 19l1.2-6.2L4 9l5.8-1.4L12 2Z"/></svg>',
   };
 
   const FLOOR_META = [
-    {id:'main', label:'Main Dining', icon:'dining'},
-    {id:'terrace', label:'Garden Terrace', icon:'terrace'},
-    {id:'bar', label:'Bar & Lounge', icon:'bar'},
-    {id:'skyline', label:'Skyline Room', icon:'skyline'}
+    {id:'main', label:'First Floor', icon:'dining'},
+    {id:'terrace', label:'Second Floor', icon:'terrace'},
+    {id:'bar', label:'Third Floor', icon:'bar'},
+    {id:'skyline', label:'Fourth Floor', icon:'skyline'}
   ];
 
   const DEFAULT_TABLES = {
@@ -705,8 +714,8 @@
         <div class="elapsed" data-elapsed="${t.id}">${fmtElapsed(Date.now()-s.seatedAt)} ago</div>
       ` : ''}
 
-      <div class="field-label">Notes</div>
-      <textarea placeholder="Reservation name, allergies, high chair, VIP…">${s.note||''}</textarea>
+      <div class="field-label">Notes:</div>
+      <textarea placeholder="Names, Reservation Time, etc">${s.note||''}</textarea>
 
       <div class="panel-actions">
         <button class="btn-clear" data-clear="1">Clear table</button>
