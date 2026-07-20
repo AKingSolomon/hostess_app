@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>The Floor — Table Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#101c17;
+    --bg-elev:#182720;
+    --panel:#1b2b24;
+    --wall: rgba(201,162,39,0.28);
+    --wall-soft: rgba(201,162,39,0.14);
+    --brass:#c9a227;
+    --brass-bright:#e6c65b;
+    --cream:#f2ece1;
+    --muted:#93a89a;
+    --muted-dim:#5e6f64;
+    --open:#6f9772;
+    --seated:#bd5c40;
+    --reserved:#5f83a3;
+    --dirty:#a98b4f;
+    --shadow: rgba(0,0,0,0.45);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  button{ touch-action:manipulation; }
+  body{
+    background: radial-gradient(ellipse at 30% -10%, #16261f 0%, var(--bg) 55%);
+    color:var(--cream);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  .wrap{ max-width:1180px; margin:0 auto; padding:28px 20px 60px; }
+
+  header{ display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:14px; margin-bottom:22px; border-bottom:1px solid var(--wall); padding-bottom:18px;}
+  .brand-eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--brass); margin:0 0 4px; }
+  h1{ font-family:'Fraunces',serif; font-weight:500; font-size:32px; margin:0; letter-spacing:.01em; }
+  .house-status{ font-size:13px; color:var(--muted); margin-top:6px; font-family:'IBM Plex Mono',monospace; }
+  .house-status b{ color:var(--cream); font-weight:500; }
+  .clock{ font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--muted); text-align:right; }
+  .clock .t{ font-size:20px; color:var(--brass-bright); display:block; }
+
+  .toprow{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; }
+  .floor-tabs{ display:flex; gap:10px; flex-wrap:wrap; }
+  .floor-tab{
+    display:flex; align-items:center; gap:9px;
+    background:var(--panel); border:1px solid var(--wall); border-radius:3px;
+    padding:10px 16px; cursor:pointer; color:var(--muted);
+    font-family:'Inter',sans-serif; font-size:13.5px; font-weight:500;
+    transition:border-color .15s, color .15s, background .15s;
+  }
+  .floor-tab svg{ width:16px; height:16px; opacity:.75; }
+  .floor-tab .num{ font-family:'IBM Plex Mono',monospace; color:var(--brass); font-size:12px; }
+  .floor-tab:hover{ border-color:var(--brass); color:var(--cream); }
+  .floor-tab.active{ background:var(--bg-elev); border-color:var(--brass); color:var(--cream); box-shadow: inset 0 0 0 1px var(--wall); }
+  .floor-tab.active .num{ color:var(--brass-bright); }
+
+  .mode-toggle{ display:flex; border:1px solid var(--wall); border-radius:20px; overflow:hidden; }
+  .mode-btn{ background:var(--panel); color:var(--muted); border:none; padding:8px 16px; font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }
+  .mode-btn.active{ background:var(--brass); color:#14190f; font-weight:600; }
+
+  .summary{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+  .chip{
+    font-family:'IBM Plex Mono',monospace; font-size:12px; padding:6px 12px; border-radius:20px;
+    border:1px solid var(--wall); color:var(--muted); display:flex; align-items:center; gap:7px;
+  }
+  .chip .dot{ width:7px; height:7px; border-radius:50%; }
+  .chip b{ color:var(--cream); font-weight:500; margin-left:1px;}
+
+  .edit-hint{
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--brass-bright);
+    background:rgba(201,162,39,0.08); border:1px dashed var(--wall); border-radius:3px;
+    padding:8px 12px; margin-bottom:14px;
+  }
+
+  .stage{ display:flex; gap:18px; align-items:flex-start; }
+  .room-col{ flex:1; min-width:0; }
+  .room-shell{
+    background:
+      linear-gradient(var(--wall-soft) 1px, transparent 1px) 0 0/100% 40px,
+      linear-gradient(90deg, var(--wall-soft) 1px, transparent 1px) 0 0/40px 100%,
+      var(--bg-elev);
+    border:1px solid var(--wall);
+    border-radius:4px;
+    padding:14px;
+    position:relative;
+  }
+  .room-name{
+    font-family:'Fraunces',serif; font-style:italic; font-weight:500; font-size:15px;
+    color:var(--brass-bright); margin:0 0 10px 2px;
+  }
+  .room{
+    position:relative; width:100%; aspect-ratio:16/10;
+    border:1.5px dashed var(--wall);
+    border-radius:6px;
+    background: radial-gradient(circle at 50% 40%, rgba(201,162,39,0.05), transparent 70%);
+    touch-action:none;
+  }
+  .room-empty{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:var(--muted-dim); font-size:13px; text-align:center; padding:20px; font-family:'IBM Plex Mono',monospace;
+  }
+  .doorway{ position:absolute; bottom:-1.5px; left:46%; width:44px; height:3px; background:var(--bg-elev); }
+
+  .add-row{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .add-btn{
+    display:flex; align-items:center; gap:7px; background:var(--panel); border:1px solid var(--wall); color:var(--cream);
+    padding:9px 14px; border-radius:3px; font-size:12.5px; cursor:pointer; font-family:'Inter',sans-serif; font-weight:500;
+  }
+  .add-btn:hover{ border-color:var(--brass); }
+  .add-btn .shape-icon{ width:14px; height:14px; border:1.4px solid var(--brass-bright); flex-shrink:0; }
+  .add-btn .shape-icon.circle{ border-radius:50%; }
+  .add-btn .shape-icon.rect{ border-radius:3px; }
+
+  .tbl-wrap{ position:absolute; transform:translate(-50%,-50%); cursor:pointer; user-select:none; }
+  .tbl-wrap.draggable{ cursor:grab; touch-action:none; }
+  .tbl-wrap.dragging{ cursor:grabbing; z-index:5; }
+  .tbl-glow{ position:absolute; inset:-14px; border-radius:50%; background: radial-gradient(circle, var(--glow-color, transparent) 0%, transparent 70%); opacity:.55; pointer-events:none; }
+  .tbl-shape{
+    position:absolute; display:flex; align-items:center; justify-content:center; flex-direction:column;
+    border:1.5px solid rgba(0,0,0,0.25);
+    background: var(--status-color, #3a463f);
+    color:#12190f;
+    font-family:'IBM Plex Mono',monospace;
+    box-shadow: 0 3px 10px var(--shadow), inset 0 0 0 1px rgba(255,255,255,0.08);
+    transition: box-shadow .15s;
+  }
+  .tbl-wrap:hover .tbl-shape{ box-shadow: 0 3px 14px var(--shadow), 0 0 0 2px var(--brass-bright); }
+  .tbl-wrap.selected .tbl-shape{ box-shadow: 0 3px 14px var(--shadow), 0 0 0 2.5px var(--cream); }
+  .tbl-shape.circle{ border-radius:50%; }
+  .tbl-shape.rect{ border-radius:7px; }
+  .tbl-label{ font-size:11px; font-weight:600; line-height:1; }
+  .tbl-seats{ font-size:8px; opacity:.75; margin-top:1px; }
+  .seat-dot{ position:absolute; width:6px; height:6px; border-radius:2px; background:var(--wall); transform:translate(-50%,-50%); }
+  .tbl-badge{
+    position:absolute; top:-9px; right:-9px; min-width:16px; height:16px; padding:0 3px;
+    border-radius:8px; background:var(--bg); border:1px solid var(--brass);
+    color:var(--brass-bright); font-family:'IBM Plex Mono',monospace; font-size:9.5px;
+    display:flex; align-items:center; justify-content:center; font-weight:600;
+  }
+  .tbl-timer{ position:absolute; bottom:-17px; left:50%; transform:translateX(-50%); font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--muted); white-space:nowrap; }
+
+  .panel{ width:290px; flex-shrink:0; background:var(--panel); border:1px solid var(--wall); border-radius:4px; padding:18px; position:sticky; top:20px; }
+  .panel.empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:260px; color:var(--muted-dim); }
+  .panel.empty svg{ width:30px; height:30px; margin-bottom:10px; opacity:.5; }
+  .panel.empty p{ font-size:13px; margin:0; line-height:1.5; }
+  .panel-head{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:2px; }
+  .panel-title{ font-family:'Fraunces',serif; font-size:22px; font-weight:500; }
+  .panel-sub{ font-size:12px; color:var(--muted); font-family:'IBM Plex Mono',monospace; margin-bottom:16px; }
+  .close-x{ background:none; border:none; color:var(--muted); font-size:18px; cursor:pointer; line-height:1; padding:2px; }
+  .close-x:hover{ color:var(--cream); }
+  .field-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin:16px 0 8px; font-weight:600; }
+  .status-grid{ display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .status-btn{
+    border:1px solid var(--wall); background:var(--bg-elev); color:var(--muted);
+    padding:9px 6px; border-radius:3px; font-size:12.5px; font-family:'Inter',sans-serif; font-weight:500;
+    cursor:pointer; display:flex; align-items:center; gap:6px; justify-content:center;
+    transition:all .12s;
+  }
+  .status-btn .sw{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .status-btn:hover{ border-color:var(--brass); color:var(--cream); }
+  .status-btn.active{ background:var(--status-color); color:#14190f; border-color:transparent; font-weight:600; }
+  .stepper{ display:flex; align-items:center; gap:12px; }
+  .step-btn{ width:30px; height:30px; border-radius:3px; border:1px solid var(--wall); background:var(--bg-elev); color:var(--cream); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .step-btn:hover{ border-color:var(--brass); }
+  .step-val{ font-family:'IBM Plex Mono',monospace; font-size:16px; min-width:20px; text-align:center; }
+  .elapsed{ font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--brass-bright); margin-top:4px; }
+  textarea{ width:100%; background:var(--bg-elev); border:1px solid var(--wall); border-radius:3px; color:var(--cream); padding:8px 10px; font-family:'Inter',sans-serif; font-size:12.5px; resize:vertical; min-height:56px; }
+  textarea:focus, .step-btn:focus, .status-btn:focus, .shape-btn:focus{ outline:2px solid var(--brass-bright); outline-offset:1px; }
+  .panel-actions{ display:flex; gap:8px; margin-top:18px; }
+  .btn-clear{ flex:1; background:transparent; border:1px solid var(--wall); color:var(--muted); padding:9px; border-radius:3px; font-size:12.5px; cursor:pointer; font-family:'Inter',sans-serif; }
+  .btn-clear:hover{ border-color:#c0664a; color:#e0917a; }
+  .btn-clear.danger{ color:#e0917a; border-color:rgba(192,102,74,0.5); }
+
+  .shape-grid{ display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .shape-btn{ border:1px solid var(--wall); background:var(--bg-elev); color:var(--muted); padding:10px 6px; border-radius:3px; font-size:12.5px; cursor:pointer; display:flex; align-items:center; gap:8px; justify-content:center; font-family:'Inter',sans-serif;}
+  .shape-btn:hover{ border-color:var(--brass); color:var(--cream); }
+  .shape-btn.active{ border-color:var(--brass-bright); color:var(--cream); background:rgba(201,162,39,0.1); }
+  .shape-btn .swatch{ width:14px; height:14px; border:1.4px solid currentColor; }
+  .shape-btn .swatch.circle{ border-radius:50%; }
+  .shape-btn .swatch.rect{ border-radius:3px; }
+  .drag-hint{ font-size:11.5px; color:var(--muted); margin-top:14px; line-height:1.5; }
+
+  .shift-row{ display:flex; justify-content:flex-end; margin-top:14px; }
+  .reset-btn{ background:none; border:none; color:var(--muted-dim); font-size:11.5px; cursor:pointer; font-family:'IBM Plex Mono',monospace; text-decoration:underline; text-underline-offset:2px; }
+  .reset-btn:hover{ color:#e0917a; }
+  .confirm-row{ display:flex; align-items:center; gap:10px; font-size:11.5px; color:var(--muted); font-family:'IBM Plex Mono',monospace; }
+  .confirm-row button{ background:none; border:1px solid var(--wall); color:var(--cream); border-radius:3px; padding:4px 10px; cursor:pointer; font-family:'Inter',sans-serif; font-size:11.5px;}
+  .confirm-row button.yes{ border-color:#c0664a; color:#e0917a; }
+
+  @media (max-width: 820px){
+    .stage{ flex-direction:column; }
+    .panel{ width:100%; position:static; }
+  }
+
+  @media (max-width: 600px){
+    .wrap{ padding:16px 12px 28px; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+    header{ padding-bottom:14px; margin-bottom:16px; }
+    h1{ font-size:26px; }
+    .clock{ text-align:left; }
+    .clock .t{ font-size:17px; }
+    .house-status{ font-size:11.5px; line-height:1.5; }
+
+    .toprow{ flex-direction:column; align-items:stretch; gap:10px; }
+    .floor-tabs{ flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; scrollbar-width:none; }
+    .floor-tabs::-webkit-scrollbar{ display:none; }
+    .floor-tab{ flex-shrink:0; min-height:44px; padding:10px 14px; }
+    .mode-toggle{ width:100%; }
+    .mode-btn{ flex:1; min-height:44px; }
+
+    .summary{ gap:6px; }
+    .chip{ font-size:11px; padding:6px 10px; }
+
+    .room{ aspect-ratio: 3/4; }
+    .add-row{ flex-direction:column; }
+    .add-btn{ width:100%; justify-content:center; min-height:46px; }
+
+    .tbl-label{ font-size:12px; }
+    .tbl-seats{ font-size:8.5px; }
+
+    /* panel becomes a bottom sheet */
+    .stage{ gap:0; }
+    .panel{
+      position:fixed; left:0; right:0; bottom:0; width:100%;
+      border-radius:16px 16px 0 0; max-height:78vh; overflow-y:auto;
+      box-shadow:0 -10px 30px rgba(0,0,0,0.55); z-index:30;
+      padding:18px 18px calc(22px + env(safe-area-inset-bottom));
+      border-bottom:none;
+    }
+    .panel.empty{ display:none; }
+    .panel-title{ font-size:24px; }
+    .close-x{ font-size:24px; padding:6px; min-width:36px; min-height:36px; }
+    .status-btn{ min-height:46px; }
+    .step-btn{ width:38px; height:38px; font-size:19px; }
+    .shape-btn{ min-height:46px; }
+    textarea{ font-size:16px; }
+    .btn-clear{ min-height:44px; }
+
+    .shift-row{ justify-content:center; margin-top:20px; }
+  }
+  @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <p class="brand-eyebrow">Front of house</p>
+      <h1>The Floor</h1>
+      <div class="house-status" id="houseStatus"></div>
+    </div>
+    <div class="clock">
+      <span>Today</span>
+      <span class="t" id="clockTime"></span>
+    </div>
+  </header>
+
+  <div class="toprow">
+    <nav class="floor-tabs" id="floorTabs" role="tablist" aria-label="Select floor"></nav>
+    <div class="mode-toggle" id="modeToggle"></div>
+  </div>
+
+  <div id="editHint"></div>
+  <div class="summary" id="summary"></div>
+
+  <div class="stage">
+    <div class="room-col">
+      <div class="room-shell">
+        <p class="room-name" id="roomName"></p>
+        <div class="room" id="room"></div>
+      </div>
+      <div class="add-row" id="addRow"></div>
+    </div>
+    <aside class="panel" id="panel"></aside>
+  </div>
+
+  <div class="shift-row" id="shiftRow"></div>
+
+</div>
+
+<script>
+(function(){
+
+  const ICONS = {
+    dining: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M6 2v8M6 2c-1.5 0-2.5 1-2.5 2.5S4.5 7 6 7M6 2c1.5 0 2.5 1 2.5 2.5S7.5 7 6 7M6 10v12"/><path d="M17 2v6a2 2 0 0 1-2 2v0a2 2 0 0 1-2-2V2M15 10v12"/></svg>',
+    terrace: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 21c4-2 6-6 6-10a6 6 0 0 0-6-6 6 6 0 0 0-6 6c0 4 2 8 6 10Z"/><path d="M12 12v9"/></svg>',
+    bar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5 3h14l-6.5 8v8M12 19H9M12 19h3M5 3l4 5M19 3l-4 5"/></svg>',
+    skyline: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 2l2.2 5.6L20 9l-4.6 3.8L16.6 19 12 15.8 7.4 19l1.2-6.2L4 9l5.8-1.4L12 2Z"/></svg>'
+  };
+
+  const FLOOR_META = [
+    {id:'main', label:'Main Dining', icon:'dining'},
+    {id:'terrace', label:'Garden Terrace', icon:'terrace'},
+    {id:'bar', label:'Bar & Lounge', icon:'bar'},
+    {id:'skyline', label:'Skyline Room', icon:'skyline'}
+  ];
+
+  const DEFAULT_TABLES = {
+    main: [],
+    terrace: [],
+    bar: [],
+    skyline: []
+  };
+
+  const STATUS = {
+    open:     {label:'Open',          color:'var(--open)'},
+    seated:   {label:'Seated',        color:'var(--seated)'},
+    reserved: {label:'Reserved',      color:'var(--reserved)'},
+    dirty:    {label:'Needs bussing', color:'var(--dirty)'}
+  };
+
+  /* ---------------- state ---------------- */
+  let mode = 'edit'; // 'service' | 'edit'
+  let activeFloor = FLOOR_META[0].id;
+  let selectedTable = null;
+  let confirmingReset = false;
+  let confirmingDelete = false;
+
+  let floorPlans = {}; // floorId -> [{id,shape,seats,x,y}]
+  FLOOR_META.forEach(f => { floorPlans[f.id] = DEFAULT_TABLES[f.id].map(t => ({...t})); });
+
+  const tableState = {}; // id -> {status, party, seatedAt, note}
+  function ensureStateFor(id, seats){
+    if(!tableState[id]) tableState[id] = {status:'open', party:seats, seatedAt:null, note:''};
+  }
+  Object.values(floorPlans).forEach(list => list.forEach(t => ensureStateFor(t.id, t.seats)));
+
+  const LAYOUT_KEY = 'hostess-floor-layout-v1';
+  const STATE_KEY = 'hostess-floor-state-v1';
+  let saveLayoutTimer = null, saveStateTimer = null;
+  function scheduleSaveLayout(){
+    clearTimeout(saveLayoutTimer);
+    saveLayoutTimer = setTimeout(async ()=>{
+      try{ await window.storage.set(LAYOUT_KEY, JSON.stringify(floorPlans), false); }catch(e){ console.error(e); }
+    }, 400);
+  }
+  function scheduleSaveState(){
+    clearTimeout(saveStateTimer);
+    saveStateTimer = setTimeout(async ()=>{
+      try{ await window.storage.set(STATE_KEY, JSON.stringify(tableState), false); }catch(e){ console.error(e); }
+    }, 400);
+  }
+  async function loadAll(){
+    try{
+      const layoutRes = await window.storage.get(LAYOUT_KEY, false);
+      if(layoutRes && layoutRes.value){
+        const saved = JSON.parse(layoutRes.value);
+        FLOOR_META.forEach(f => { if(saved[f.id]) floorPlans[f.id] = saved[f.id]; });
+      }
+    }catch(e){ /* no saved layout yet */ }
+    Object.values(floorPlans).forEach(list => list.forEach(t => ensureStateFor(t.id, t.seats)));
+    try{
+      const stateRes = await window.storage.get(STATE_KEY, false);
+      if(stateRes && stateRes.value){
+        const saved = JSON.parse(stateRes.value);
+        Object.keys(saved).forEach(id => { if(tableState[id]) tableState[id] = saved[id]; });
+      }
+    }catch(e){ /* no saved state yet */ }
+    renderAll();
+  }
+
+  /* ---------------- helpers ---------------- */
+  function currentTables(){ return floorPlans[activeFloor]; }
+  function findTable(id){
+    for(const fid of Object.keys(floorPlans)){
+      const t = floorPlans[fid].find(x=>x.id===id);
+      if(t) return {t, floorId:fid};
+    }
+    return null;
+  }
+  function floorMeta(id){ return FLOOR_META.find(f=>f.id===id); }
+  function nextId(floorId){
+    const prefix = floorId.charAt(0).toUpperCase();
+    let max = 0;
+    floorPlans[floorId].forEach(t=>{
+      const m = t.id.match(/^[A-Za-z]+(\d+)$/);
+      if(m) max = Math.max(max, parseInt(m[1],10));
+    });
+    return prefix + (max+1);
+  }
+  function sizeFor(shape, seats, scale){
+    scale = scale || 1;
+    let w, h;
+    if(shape==='circle'){
+      const d = Math.max(50, Math.min(140, 46 + seats*8));
+      w = d; h = d;
+    } else {
+      w = Math.max(56, Math.min(190, 48 + seats*13));
+      h = seats > 6 ? 54 : 44;
+    }
+    return { w: Math.max(34, Math.round(w*scale)), h: Math.max(30, Math.round(h*scale)) };
+  }
+  function computeRoomScale(){
+    const room = document.getElementById('room');
+    if(!room) return 1;
+    const w = room.getBoundingClientRect().width;
+    if(!w) return 1;
+    return clamp(w/720, 0.48, 1);
+  }
+  function circleSeatPositions(n){
+    const pts = [];
+    for(let i=0;i<n;i++){
+      const angle = (-90 + i*(360/n)) * Math.PI/180;
+      pts.push({ left: 50 + 46*Math.cos(angle), top: 50 + 46*Math.sin(angle) });
+    }
+    return pts;
+  }
+  function rectSeatPositions(n){
+    const top = Math.ceil(n/2), bottom = n - top;
+    const spread = (count) => Array.from({length:count},(_,i)=> (count===1?50: 12 + i*(76/(count-1)) ));
+    const pts = [];
+    spread(top).forEach(l => pts.push({left:l, top:0}));
+    spread(bottom).forEach(l => pts.push({left:l, top:100}));
+    return pts;
+  }
+  function fmtElapsed(ms){
+    const mins = Math.floor(ms/60000);
+    if(mins < 1) return 'just seated';
+    if(mins < 60) return mins + ' min';
+    const h = Math.floor(mins/60), m = mins%60;
+    return h + 'h ' + m + 'm';
+  }
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+  /* ---------------- rendering ---------------- */
+  function renderClock(){
+    document.getElementById('clockTime').textContent =
+      new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  }
+
+  function renderFloorTabs(){
+    const el = document.getElementById('floorTabs');
+    el.innerHTML = FLOOR_META.map((f,i) => `
+      <button class="floor-tab ${f.id===activeFloor?'active':''}" data-floor="${f.id}" role="tab" aria-selected="${f.id===activeFloor}">
+        <span class="num">0${i+1}</span>${ICONS[f.icon]}<span>${f.label}</span>
+      </button>
+    `).join('');
+    el.querySelectorAll('.floor-tab').forEach(b=>{
+      b.addEventListener('click', ()=>{ activeFloor=b.dataset.floor; selectedTable=null; confirmingDelete=false; renderAll(); });
+    });
+  }
+
+  function renderModeToggle(){
+    const el = document.getElementById('modeToggle');
+    el.innerHTML = `
+      <button class="mode-btn ${mode==='service'?'active':''}" data-mode="service">Service</button>
+      <button class="mode-btn ${mode==='edit'?'active':''}" data-mode="edit">Edit layout</button>
+    `;
+    el.querySelectorAll('.mode-btn').forEach(b=>{
+      b.addEventListener('click', ()=>{ mode=b.dataset.mode; confirmingDelete=false; renderAll(); });
+    });
+  }
+
+  function renderEditHint(){
+    const el = document.getElementById('editHint');
+    if(mode==='edit'){
+      el.innerHTML = `<div class="edit-hint">Drag a table to reposition it · click a table to change its shape and seats · use the buttons below the map to add new tables.</div>`;
+    } else {
+      el.innerHTML = '';
+    }
+  }
+
+  function renderSummary(){
+    if(mode==='edit'){ document.getElementById('summary').innerHTML=''; document.getElementById('roomName').textContent = floorMeta(activeFloor).label + ' — layout editor'; return; }
+    const tables = currentTables();
+    const counts = {open:0, seated:0, reserved:0, dirty:0};
+    let covers = 0;
+    tables.forEach(t=>{
+      const s = tableState[t.id];
+      counts[s.status]++;
+      if(s.status==='seated') covers += s.party;
+    });
+    const el = document.getElementById('summary');
+    el.innerHTML = Object.keys(STATUS).map(key => `
+      <span class="chip"><span class="dot" style="background:${STATUS[key].color}"></span>${STATUS[key].label} <b>${counts[key]}</b></span>
+    `).join('') + `<span class="chip">Covers seated <b>${covers}</b></span>`;
+    document.getElementById('roomName').textContent = floorMeta(activeFloor).label + ' — floor map';
+  }
+
+  function renderHouseStatus(){
+    let open=0, seated=0, reserved=0, covers=0, total=0;
+    Object.values(floorPlans).forEach(list=>list.forEach(t=>{
+      const s = tableState[t.id]; total++;
+      if(s.status==='open') open++;
+      if(s.status==='seated'){ seated++; covers+=s.party; }
+      if(s.status==='reserved') reserved++;
+    }));
+    document.getElementById('houseStatus').innerHTML =
+      `<b>${open}</b> open · <b>${seated}</b> seated (${covers} covers) · <b>${reserved}</b> reserved — ${total} tables across 4 floors`;
+  }
+
+  let dragState = null;
+
+  function renderRoom(){
+    const tables = currentTables();
+    const room = document.getElementById('room');
+
+    if(tables.length===0){
+      room.innerHTML = `<div class="room-empty">No tables on this floor yet.${mode==='edit' ? ' Add one below.' : ' Switch to Edit layout to add tables.'}</div>` + `<div class="doorway"></div>`;
+      return;
+    }
+
+    const scale = computeRoomScale();
+    const pad = Math.max(12, Math.round(28*scale));
+    const half = pad/2;
+    const textScale = clamp(scale, 0.72, 1);
+    const dotSize = Math.max(4, Math.round(6*scale));
+
+    room.innerHTML = tables.map(t => {
+      const s = tableState[t.id];
+      const size = sizeFor(t.shape, t.seats, scale);
+      const seatPts = t.shape==='circle' ? circleSeatPositions(t.seats) : rectSeatPositions(t.seats);
+      const seatDots = seatPts.map(p=>`<span class="seat-dot" style="left:${p.left}%; top:${p.top}%; width:${dotSize}px; height:${dotSize}px;"></span>`).join('');
+      const statusColor = mode==='edit' ? 'var(--wall)' : STATUS[s.status].color;
+      const badge = (mode==='service' && (s.status==='seated' || s.status==='reserved')) ? `<span class="tbl-badge">${s.party}</span>` : '';
+      const timer = (mode==='service' && s.status==='seated' && s.seatedAt) ? `<span class="tbl-timer" data-timer="${t.id}">${fmtElapsed(Date.now()-s.seatedAt)}</span>` : '';
+      return `
+        <div class="tbl-wrap ${selectedTable===t.id?'selected':''} ${mode==='edit'?'draggable':''}" data-id="${t.id}"
+             style="left:${t.x}%; top:${t.y}%; width:${size.w+pad}px; height:${size.h+pad}px;">
+          <div class="tbl-glow" style="--glow-color:${statusColor}"></div>
+          <div class="tbl-shape ${t.shape}" style="--status-color:${statusColor}; width:${size.w}px; height:${size.h}px; left:${half}px; top:${half}px;">
+            <span class="tbl-label" style="font-size:${Math.round(11*textScale)}px;">${t.id}</span>
+            <span class="tbl-seats" style="font-size:${Math.round(8*textScale)}px;">${t.seats} top</span>
+          </div>
+          ${seatDots}
+          ${badge}
+          ${timer}
+        </div>
+      `;
+    }).join('') + `<div class="doorway"></div>`;
+
+    room.querySelectorAll('.tbl-wrap').forEach(el=>{
+      const id = el.dataset.id;
+      el.addEventListener('pointerdown', (e)=>{
+        if(mode!=='edit') return;
+        e.preventDefault();
+        el.setPointerCapture(e.pointerId);
+        const roomRect = room.getBoundingClientRect();
+        dragState = { id, pointerId:e.pointerId, moved:false, roomRect };
+        el.classList.add('dragging');
+      });
+      el.addEventListener('pointermove', (e)=>{
+        if(!dragState || dragState.id!==id) return;
+        const rect = dragState.roomRect;
+        const leftPct = clamp(((e.clientX-rect.left)/rect.width)*100, 4, 96);
+        const topPct = clamp(((e.clientY-rect.top)/rect.height)*100, 4, 96);
+        el.style.left = leftPct+'%';
+        el.style.top = topPct+'%';
+        dragState.x = leftPct; dragState.y = topPct; dragState.moved = true;
+      });
+      el.addEventListener('pointerup', (e)=>{
+        if(mode==='edit' && dragState && dragState.id===id){
+          el.classList.remove('dragging');
+          if(dragState.moved){
+            const found = findTable(id);
+            if(found){ found.t.x = dragState.x; found.t.y = dragState.y; scheduleSaveLayout(); }
+          }
+          dragState = null;
+        }
+        selectedTable = id;
+        confirmingDelete = false;
+        renderAll();
+      });
+    });
+  }
+
+  function renderAddRow(){
+    const el = document.getElementById('addRow');
+    if(mode!=='edit'){ el.innerHTML=''; return; }
+    el.innerHTML = `
+      <button class="add-btn" id="addCircle"><span class="shape-icon circle"></span>Add round table</button>
+      <button class="add-btn" id="addRect"><span class="shape-icon rect"></span>Add rectangular table</button>
+    `;
+    document.getElementById('addCircle').addEventListener('click', ()=> addTable('circle'));
+    document.getElementById('addRect').addEventListener('click', ()=> addTable('rect'));
+  }
+
+  function addTable(shape){
+    const id = nextId(activeFloor);
+    const count = floorPlans[activeFloor].length;
+    const jitter = (count % 5) * 3;
+    const t = { id, shape, seats:4, x: clamp(50 + jitter, 10, 90), y: clamp(50 + jitter, 15, 85) };
+    floorPlans[activeFloor].push(t);
+    ensureStateFor(id, t.seats);
+    selectedTable = id;
+    scheduleSaveLayout(); scheduleSaveState();
+    renderAll();
+  }
+
+  function renderPanel(){
+    const panel = document.getElementById('panel');
+    if(!selectedTable){
+      panel.className = 'panel empty';
+      panel.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>
+        <p>${mode==='edit' ? 'Select a table to edit its shape and seats, or add a new one below the map.' : 'Select a table on the floor map to update its status, party size, or notes.'}</p>
+      `;
+      return;
+    }
+    const found = findTable(selectedTable);
+    if(!found){ selectedTable=null; return renderPanel(); }
+    const {t, floorId} = found;
+    const s = tableState[t.id];
+    panel.className = 'panel';
+
+    if(mode==='edit'){
+      panel.innerHTML = `
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">${t.id}</div>
+            <div class="panel-sub">${floorMeta(floorId).label}</div>
+          </div>
+          <button class="close-x" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="field-label">Shape</div>
+        <div class="shape-grid">
+          <button class="shape-btn ${t.shape==='circle'?'active':''}" data-shape="circle"><span class="swatch circle"></span>Round</button>
+          <button class="shape-btn ${t.shape==='rect'?'active':''}" data-shape="rect"><span class="swatch rect"></span>Rectangular</button>
+        </div>
+
+        <div class="field-label">Seats</div>
+        <div class="stepper">
+          <button class="step-btn" data-seat-step="-1">&minus;</button>
+          <span class="step-val">${t.seats}</span>
+          <button class="step-btn" data-seat-step="1">&plus;</button>
+        </div>
+
+        <div class="drag-hint">Drag this table on the map to reposition it.</div>
+
+        <div class="panel-actions">
+          ${confirmingDelete ? `
+            <span class="confirm-row" style="width:100%; justify-content:space-between;">
+              Remove ${t.id}?
+              <span>
+                <button class="yes" id="delYes">Yes</button>
+                <button id="delNo">Cancel</button>
+              </span>
+            </span>
+          ` : `<button class="btn-clear danger" id="delBtn">Delete table</button>`}
+        </div>
+      `;
+      panel.querySelector('.close-x').addEventListener('click', ()=>{ selectedTable=null; confirmingDelete=false; renderAll(); });
+      panel.querySelectorAll('[data-shape]').forEach(b=>{
+        b.addEventListener('click', ()=>{ t.shape = b.dataset.shape; scheduleSaveLayout(); renderAll(); });
+      });
+      panel.querySelectorAll('[data-seat-step]').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const d = parseInt(b.dataset.seatStep,10);
+          t.seats = clamp(t.seats + d, 1, 12);
+          if(s.status!=='seated' && s.status!=='reserved') s.party = t.seats;
+          scheduleSaveLayout(); scheduleSaveState(); renderAll();
+        });
+      });
+      if(confirmingDelete){
+        panel.querySelector('#delYes').addEventListener('click', ()=>{
+          floorPlans[floorId] = floorPlans[floorId].filter(x=>x.id!==t.id);
+          delete tableState[t.id];
+          selectedTable = null; confirmingDelete = false;
+          scheduleSaveLayout(); scheduleSaveState(); renderAll();
+        });
+        panel.querySelector('#delNo').addEventListener('click', ()=>{ confirmingDelete=false; renderAll(); });
+      }else{
+        panel.querySelector('#delBtn').addEventListener('click', ()=>{ confirmingDelete=true; renderAll(); });
+      }
+      return;
+    }
+
+    /* service mode panel */
+    panel.innerHTML = `
+      <div class="panel-head">
+        <div>
+          <div class="panel-title">${t.id}</div>
+          <div class="panel-sub">${floorMeta(floorId).label} · ${t.shape==='circle'?'Round':'Rectangular'} · Seats ${t.seats}</div>
+        </div>
+        <button class="close-x" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="field-label">Status</div>
+      <div class="status-grid">
+        ${Object.keys(STATUS).map(key => `
+          <button class="status-btn ${s.status===key?'active':''}" data-status="${key}" style="--status-color:${STATUS[key].color}">
+            <span class="sw" style="background:${STATUS[key].color}"></span>${STATUS[key].label}
+          </button>
+        `).join('')}
+      </div>
+
+      ${(s.status==='seated'||s.status==='reserved') ? `
+        <div class="field-label">Party size</div>
+        <div class="stepper">
+          <button class="step-btn" data-step="-1">&minus;</button>
+          <span class="step-val">${s.party}</span>
+          <button class="step-btn" data-step="1">&plus;</button>
+        </div>
+      ` : ''}
+
+      ${(s.status==='seated' && s.seatedAt) ? `
+        <div class="field-label">Seated</div>
+        <div class="elapsed" data-elapsed="${t.id}">${fmtElapsed(Date.now()-s.seatedAt)} ago</div>
+      ` : ''}
+
+      <div class="field-label">Notes</div>
+      <textarea placeholder="Reservation name, allergies, high chair, VIP…">${s.note||''}</textarea>
+
+      <div class="panel-actions">
+        <button class="btn-clear" data-clear="1">Clear table</button>
+      </div>
+    `;
+    panel.querySelector('.close-x').addEventListener('click', ()=>{ selectedTable=null; renderAll(); });
+    panel.querySelectorAll('[data-status]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const key = b.dataset.status;
+        if(key==='seated' && s.status!=='seated'){ s.seatedAt = Date.now(); if(!s.party) s.party = t.seats; }
+        if(key!=='seated'){ s.seatedAt = null; }
+        if((key==='seated'||key==='reserved') && !s.party){ s.party = t.seats; }
+        s.status = key;
+        scheduleSaveState(); renderAll();
+      });
+    });
+    panel.querySelectorAll('[data-step]').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const d = parseInt(b.dataset.step,10);
+        s.party = Math.max(1, Math.min(t.seats+2, s.party + d));
+        scheduleSaveState(); renderAll();
+      });
+    });
+    panel.querySelector('textarea').addEventListener('input', (e)=>{
+      s.note = e.target.value;
+      scheduleSaveState();
+    });
+    panel.querySelector('[data-clear]').addEventListener('click', ()=>{
+      tableState[t.id] = {status:'open', party:t.seats, seatedAt:null, note:''};
+      scheduleSaveState(); renderAll();
+    });
+  }
+
+  function renderShiftRow(){
+    const el = document.getElementById('shiftRow');
+    if(mode==='edit'){ el.innerHTML=''; return; }
+    if(!confirmingReset){
+      el.innerHTML = `<button class="reset-btn" id="resetBtn">Reset all tables for a new shift</button>`;
+      document.getElementById('resetBtn').addEventListener('click', ()=>{ confirmingReset=true; renderAll(); });
+    }else{
+      el.innerHTML = `
+        <span class="confirm-row">
+          Clear every floor back to open?
+          <button class="yes" id="resetYes">Yes, reset</button>
+          <button id="resetNo">Cancel</button>
+        </span>`;
+      document.getElementById('resetYes').addEventListener('click', ()=>{
+        Object.values(floorPlans).forEach(list=>list.forEach(t=>{ tableState[t.id] = {status:'open', party:t.seats, seatedAt:null, note:''}; }));
+        confirmingReset=false; selectedTable=null; scheduleSaveState(); renderAll();
+      });
+      document.getElementById('resetNo').addEventListener('click', ()=>{ confirmingReset=false; renderAll(); });
+    }
+  }
+
+  function renderAll(){
+    renderFloorTabs();
+    renderModeToggle();
+    renderEditHint();
+    renderSummary();
+    renderHouseStatus();
+    renderRoom();
+    renderAddRow();
+    renderPanel();
+    renderShiftRow();
+  }
+
+  function tickTimers(){
+    if(mode!=='service') return;
+    document.querySelectorAll('[data-timer]').forEach(el=>{
+      const id = el.dataset.timer;
+      const s = tableState[id];
+      if(s && s.status==='seated' && s.seatedAt) el.textContent = fmtElapsed(Date.now()-s.seatedAt);
+    });
+    document.querySelectorAll('[data-elapsed]').forEach(el=>{
+      const id = el.dataset.elapsed;
+      const s = tableState[id];
+      if(s && s.status==='seated' && s.seatedAt) el.textContent = fmtElapsed(Date.now()-s.seatedAt) + ' ago';
+    });
+  }
+
+  renderClock();
+  setInterval(renderClock, 30000);
+  setInterval(tickTimers, 15000);
+  let resizeTimer = null;
+  window.addEventListener('resize', ()=>{
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(renderRoom, 120);
+  });
+  loadAll();
+
+})();
+</script>
+</body>
+</html>
