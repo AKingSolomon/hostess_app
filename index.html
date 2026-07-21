@@ -293,7 +293,23 @@
 
 </div>
 
-<script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBmzJPqWhoSKO6ZxZrHgw70QC8OYV-AjfE",
+    authDomain: "hostess-site.firebaseapp.com",
+    databaseURL: "https://hostess-site-default-rtdb.firebaseio.com",
+    projectId: "hostess-site",
+    storageBucket: "hostess-site.firebasestorage.app",
+    messagingSenderId: "176327191871",
+    appId: "1:176327191871:web:587b0fee2f75d86cdff78a",
+    measurementId: "G-E2LKFBTM98"
+  };
+  const firebaseApp = initializeApp(firebaseConfig);
+  const db = getDatabase(firebaseApp);
+
 (function(){
 
   const ICONS = {
@@ -340,38 +356,40 @@
   }
   Object.values(floorPlans).forEach(list => list.forEach(t => ensureStateFor(t.id, t.seats)));
 
-  const LAYOUT_KEY = 'hostess-floor-layout-v1';
-  const STATE_KEY = 'hostess-floor-state-v1';
+  const LAYOUT_PATH = 'floorPlans';
+  const STATE_PATH = 'tableState';
   let saveLayoutTimer = null, saveStateTimer = null;
   function scheduleSaveLayout(){
     clearTimeout(saveLayoutTimer);
-    saveLayoutTimer = setTimeout(async ()=>{
-      try{ await window.storage.set(LAYOUT_KEY, JSON.stringify(floorPlans), false); }catch(e){ console.error(e); }
+    saveLayoutTimer = setTimeout(()=>{
+      set(ref(db, LAYOUT_PATH), floorPlans).catch(e=>console.error('save layout failed', e));
     }, 400);
   }
   function scheduleSaveState(){
     clearTimeout(saveStateTimer);
-    saveStateTimer = setTimeout(async ()=>{
-      try{ await window.storage.set(STATE_KEY, JSON.stringify(tableState), false); }catch(e){ console.error(e); }
+    saveStateTimer = setTimeout(()=>{
+      set(ref(db, STATE_PATH), tableState).catch(e=>console.error('save state failed', e));
     }, 400);
   }
-  async function loadAll(){
-    try{
-      const layoutRes = await window.storage.get(LAYOUT_KEY, false);
-      if(layoutRes && layoutRes.value){
-        const saved = JSON.parse(layoutRes.value);
+  function loadAll(){
+    // Live-syncs from Firebase: fires immediately with whatever is already saved,
+    // then again any time the data changes (including from another device).
+    onValue(ref(db, LAYOUT_PATH), (snap)=>{
+      if(snap.exists() && !dragState){
+        const saved = snap.val();
         FLOOR_META.forEach(f => { if(saved[f.id]) floorPlans[f.id] = saved[f.id]; });
+        Object.values(floorPlans).forEach(list => list.forEach(t => ensureStateFor(t.id, t.seats)));
       }
-    }catch(e){ /* no saved layout yet */ }
-    Object.values(floorPlans).forEach(list => list.forEach(t => ensureStateFor(t.id, t.seats)));
-    try{
-      const stateRes = await window.storage.get(STATE_KEY, false);
-      if(stateRes && stateRes.value){
-        const saved = JSON.parse(stateRes.value);
-        Object.keys(saved).forEach(id => { if(tableState[id]) tableState[id] = saved[id]; });
+      renderAll();
+    }, (e)=>console.error('load layout failed', e));
+
+    onValue(ref(db, STATE_PATH), (snap)=>{
+      if(snap.exists()){
+        const saved = snap.val();
+        Object.keys(saved).forEach(id => { tableState[id] = saved[id]; });
       }
-    }catch(e){ /* no saved state yet */ }
-    renderAll();
+      renderAll();
+    }, (e)=>console.error('load state failed', e));
   }
 
   /* ---------------- helpers ---------------- */
