@@ -13,14 +13,14 @@
     --bg:#101c17;
     --bg-elev:#182720;
     --panel:#1b2b24;
-    --wall: rgba(201,162,39,0.28);
-    --wall-soft: rgba(201,162,39,0.14);
-    --brass:#c9a227;
-    --brass-bright:#e6c65b;
+    --wall: rgba(39, 74, 201, 0.5);
+    --wall-soft: rgba(39, 74, 201, 0.28);
+    --brass:#11826f;
+    --brass-bright:#26b39c;
     --cream:#f2ece1;
     --muted:#93a89a;
     --muted-dim:#5e6f64;
-    --open:#6f9772;
+    --open:#246128;
     --seated:#bd5c40;
     --reserved:#5f83a3;
     --dirty:#a98b4f;
@@ -260,12 +260,12 @@
 
   <header>
     <div>
-      <p class="brand-eyebrow">Front of house</p>
-      <h1>The Floor</h1>
+      <p class="brand-eyebrow"><b>Monica's Super Serious Job Website</b></p>
+      <h1>The Perfect Pint</h1>
       <div class="house-status" id="houseStatus"></div>
     </div>
     <div class="clock">
-      <span>Today</span>
+      <span id="dateTime">Today</span>
       <span class="t" id="clockTime"></span>
     </div>
   </header>
@@ -431,9 +431,9 @@
   function fmtElapsed(ms){
     const mins = Math.floor(ms/60000);
     if(mins < 1) return 'just seated';
-    if(mins < 60) return mins + ' min';
+    if(mins < 60) return mins + ' min ago';
     const h = Math.floor(mins/60), m = mins%60;
-    return h + 'h ' + m + 'm';
+    return h + 'h ' + m + 'm ago';
   }
   function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 
@@ -441,6 +441,14 @@
   function renderClock(){
     document.getElementById('clockTime').textContent =
       new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  }
+  function renderDate(){
+    document.getElementById('dateTime').textContent = 
+      new Date().toLocaleDateString([], {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric'
+      })
   }
 
   function renderFloorTabs(){
@@ -488,7 +496,7 @@
     const el = document.getElementById('summary');
     el.innerHTML = Object.keys(STATUS).map(key => `
       <span class="chip"><span class="dot" style="background:${STATUS[key].color}"></span>${STATUS[key].label} <b>${counts[key]}</b></span>
-    `).join('') + `<span class="chip">Covers seated <b>${covers}</b></span>`;
+    `).join('') + `<span class="chip">Customers seated <b>${covers}</b></span>`;
     document.getElementById('roomName').textContent = floorMeta(activeFloor).label + ' — floor map';
   }
 
@@ -501,7 +509,7 @@
       if(s.status==='reserved') reserved++;
     }));
     document.getElementById('houseStatus').innerHTML =
-      `<b>${open}</b> open · <b>${seated}</b> seated (${covers} covers) · <b>${reserved}</b> reserved — ${total} tables across 4 floors`;
+      ` Tables: <b>${open}</b> open · <b>${seated}</b> seated (${covers} customers) · <b>${reserved}</b> reserved`;
   }
 
   let dragState = null;
@@ -534,8 +542,8 @@
              style="left:${t.x}%; top:${t.y}%; width:${size.w+pad}px; height:${size.h+pad}px;">
           <div class="tbl-glow" style="--glow-color:${statusColor}"></div>
           <div class="tbl-shape ${t.shape}" style="--status-color:${statusColor}; width:${size.w}px; height:${size.h}px; left:${half}px; top:${half}px;">
-            <span class="tbl-label" style="font-size:${Math.round(11*textScale)}px;">${t.id}</span>
-            <span class="tbl-seats" style="font-size:${Math.round(8*textScale)}px;">${t.seats} top</span>
+            <span class="tbl-label" style="font-size:${Math.round(15*textScale)}px;">${t.id}</span>
+            <span class="tbl-seats" style="font-size:${Math.round(10*textScale)}px;"><b>${t.seats} top</b></span>
           </div>
           ${seatDots}
           ${badge}
@@ -711,7 +719,7 @@
 
       ${(s.status==='seated' && s.seatedAt) ? `
         <div class="field-label">Seated</div>
-        <div class="elapsed" data-elapsed="${t.id}">${fmtElapsed(Date.now()-s.seatedAt)} ago</div>
+        <div class="elapsed" data-elapsed="${t.id}">${fmtElapsed(Date.now()-s.seatedAt)} </div>
       ` : ''}
 
       <div class="field-label">Notes:</div>
@@ -797,6 +805,7 @@
   }
 
   renderClock();
+  renderDate();
   setInterval(renderClock, 30000);
   setInterval(tickTimers, 15000);
   let resizeTimer = null;
