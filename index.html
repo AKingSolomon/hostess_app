@@ -78,8 +78,8 @@
     padding:8px 12px; margin-bottom:14px;
   }
 
-  .stage{ display:flex; gap:18px; align-items:flex-start; }
-  .room-col{ flex:1; min-width:0; width:100%}
+  .stage{ display:flex; gap:18px; align-items:center; }
+  .room-col{ flex:1; min-width:0; width:90%}
   .room-shell{
     background:
       linear-gradient(var(--wall-soft) 1px, transparent 1px) 0 0/100% 40px,
@@ -171,6 +171,16 @@
   .step-val{ font-family:'IBM Plex Mono',monospace; font-size:16px; min-width:20px; text-align:center; }
   .elapsed{ font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--brass-bright); margin-top:4px; }
   textarea{ width:100%; background:var(--bg-elev); border:1px solid var(--wall); border-radius:3px; color:var(--cream); padding:8px 10px; font-family:'Inter',sans-serif; font-size:12.5px; resize:vertical; min-height:56px; }
+  .name-input{ width:100%; background:var(--bg-elev); border:1px solid var(--wall); border-radius:3px; color:var(--cream); padding:9px 10px; font-family:'Inter',sans-serif; font-size:13.5px; }
+  .name-input::placeholder{ color:var(--muted-dim); }
+  .name-input:focus{ outline:2px solid var(--brass-bright); outline-offset:1px; }
+  .rotate-btn{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
+    border:1px solid var(--wall); background:var(--bg-elev); color:var(--cream);
+    padding:10px 6px; border-radius:3px; font-size:12.5px; cursor:pointer; font-family:'Inter',sans-serif; font-weight:500;
+  }
+  .rotate-btn svg{ width:15px; height:15px; }
+  .rotate-btn:hover{ border-color:var(--brass); }
   textarea:focus, .step-btn:focus, .status-btn:focus, .shape-btn:focus{ outline:2px solid var(--brass-bright); outline-offset:1px; }
   .panel-actions{ display:flex; gap:8px; margin-top:18px; }
   .btn-clear{ flex:1; background:transparent; border:1px solid var(--wall); color:var(--muted); padding:9px; border-radius:3px; font-size:12.5px; cursor:pointer; font-family:'Inter',sans-serif; }
@@ -247,6 +257,8 @@
     .status-btn{ min-height:46px; }
     .step-btn{ width:38px; height:38px; font-size:19px; }
     .shape-btn{ min-height:46px; }
+    .name-input{ min-height:44px; font-size:16px; }
+    .rotate-btn{ min-height:46px; }
     textarea{ font-size:16px; }
     .btn-clear{ min-height:44px; }
 
@@ -411,7 +423,7 @@
     });
     return prefix + (max+1);
   }
-  function sizeFor(shape, seats, scale){
+  function sizeFor(shape, seats, scale, rotated){
     scale = scale || 1;
     let w, h;
     if(shape==='circle'){
@@ -420,6 +432,7 @@
     } else {
       w = Math.max(56, Math.min(190, 48 + seats*13));
       h = seats > 6 ? 54 : 44;
+      if(rotated){ const tmp = w; w = h; h = tmp; }
     }
     return { w: Math.max(34, Math.round(w*scale)), h: Math.max(30, Math.round(h*scale)) };
   }
@@ -428,7 +441,7 @@
     if(!room) return 1;
     const w = room.getBoundingClientRect().width;
     if(!w) return 1;
-    return clamp(w/720, 0.8, 1);
+    return clamp(w/720, 0.5, 1);
   }
   function circleSeatPositions(n){
     const pts = [];
@@ -438,12 +451,17 @@
     }
     return pts;
   }
-  function rectSeatPositions(n){
-    const top = Math.ceil(n/2), bottom = n - top;
+  function rectSeatPositions(n, rotated){
+    const a = Math.ceil(n/2), b = n - a;
     const spread = (count) => Array.from({length:count},(_,i)=> (count===1?50: 12 + i*(76/(count-1)) ));
     const pts = [];
-    spread(top).forEach(l => pts.push({left:l, top:0}));
-    spread(bottom).forEach(l => pts.push({left:l, top:100}));
+    if(!rotated){
+      spread(a).forEach(l => pts.push({left:l, top:0}));
+      spread(b).forEach(l => pts.push({left:l, top:100}));
+    } else {
+      spread(a).forEach(v => pts.push({left:0, top:v}));
+      spread(b).forEach(v => pts.push({left:100, top:v}));
+    }
     return pts;
   }
   function fmtElapsed(ms){
@@ -454,6 +472,9 @@
     return h + 'h ' + m + 'm ago';
   }
   function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
 
   /* ---------------- rendering ---------------- */
   function renderClock(){
@@ -549,18 +570,20 @@
 
     room.innerHTML = tables.map(t => {
       const s = tableState[t.id];
-      const size = sizeFor(t.shape, t.seats, scale);
-      const seatPts = t.shape==='circle' ? circleSeatPositions(t.seats) : rectSeatPositions(t.seats);
+      const rotated = t.shape==='rect' && !!t.rotated;
+      const size = sizeFor(t.shape, t.seats, scale, rotated);
+      const seatPts = t.shape==='circle' ? circleSeatPositions(t.seats) : rectSeatPositions(t.seats, rotated);
       const seatDots = seatPts.map(p=>`<span class="seat-dot" style="left:${p.left}%; top:${p.top}%; width:${dotSize}px; height:${dotSize}px;"></span>`).join('');
       const statusColor = mode==='edit' ? 'var(--wall)' : STATUS[s.status].color;
       const badge = (mode==='service' && (s.status==='seated' || s.status==='reserved')) ? `<span class="tbl-badge">${s.party}</span>` : '';
       const timer = (mode==='service' && s.status==='seated' && s.seatedAt) ? `<span class="tbl-timer" data-timer="${t.id}">${fmtElapsed(Date.now()-s.seatedAt)}</span>` : '';
+      const displayName = escapeHtml(t.name || t.id);
       return `
         <div class="tbl-wrap ${selectedTable===t.id?'selected':''} ${mode==='edit'?'draggable':''}" data-id="${t.id}"
              style="left:${t.x}%; top:${t.y}%; width:${size.w+pad}px; height:${size.h+pad}px;">
           <div class="tbl-glow" style="--glow-color:${statusColor}"></div>
           <div class="tbl-shape ${t.shape}" style="--status-color:${statusColor}; width:${size.w}px; height:${size.h}px; left:${half}px; top:${half}px;">
-            <span class="tbl-label" style="font-size:${Math.round(15*textScale)}px;">${t.id}</span>
+            <span class="tbl-label" style="font-size:${Math.round(15*textScale)}px; max-width:${Math.max(size.w-8,20)}px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayName}</span>
             <span class="tbl-seats" style="font-size:${Math.round(10*textScale)}px;"><b>${t.seats} top</b></span>
           </div>
           ${seatDots}
@@ -620,7 +643,7 @@
     const id = nextId(activeFloor);
     const count = floorPlans[activeFloor].length;
     const jitter = (count % 5) * 3;
-    const t = { id, shape, seats:4, x: clamp(50 + jitter, 10, 90), y: clamp(50 + jitter, 15, 85) };
+    const t = { id, shape, seats:4, x: clamp(50 + jitter, 10, 90), y: clamp(50 + jitter, 15, 85), name:'', rotated:false };
     floorPlans[activeFloor].push(t);
     ensureStateFor(id, t.seats);
     selectedTable = id;
@@ -654,17 +677,32 @@
           <button class="close-x" aria-label="Close">&times;</button>
         </div>
 
+        <div class="field-label">Table name</div>
+        <input type="text" class="name-input" id="nameInput" maxlength="24" placeholder="${t.id}" value="${escapeHtml(t.name || '')}" />
+
         <div class="field-label">Shape</div>
         <div class="shape-grid">
           <button class="shape-btn ${t.shape==='circle'?'active':''}" data-shape="circle"><span class="swatch circle"></span>Round</button>
           <button class="shape-btn ${t.shape==='rect'?'active':''}" data-shape="rect"><span class="swatch rect"></span>Rectangular</button>
         </div>
-
-        <div class="field-label">Seats</div>
-        <div class="stepper">
-          <button class="step-btn" data-seat-step="-1">&minus;</button>
-          <span class="step-val">${t.seats}</span>
-          <button class="step-btn" data-seat-step="1">&plus;</button>
+        <div class="shape-grid">
+          <div id="set-seats">
+            <div class="field-label">Seats</div>
+            <div class="stepper">
+              <button class="step-btn" data-seat-step="-1">&minus;</button>
+              <span class="step-val">${t.seats}</span>
+              <button class="step-btn" data-seat-step="1">&plus;</button>
+            </div>
+          </div>
+          <div id="set-rotation">
+            ${t.shape==='rect' ? `
+              <div class="field-label">Orientation</div>
+              <button class="rotate-btn" id="rotateBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12a9 9 0 1 1 3.5 7.1"/><path d="M3 21v-6h6"/></svg>
+                Rotate table
+              </button>
+            ` : ''}
+          </div>
         </div>
 
         <div class="drag-hint">Drag this table on the map to reposition it.</div>
@@ -682,9 +720,21 @@
         </div>
       `;
       panel.querySelector('.close-x').addEventListener('click', ()=>{ selectedTable=null; confirmingDelete=false; renderAll(); });
+      panel.querySelector('#nameInput').addEventListener('input', (e)=>{
+        t.name = e.target.value;
+        scheduleSaveLayout();
+        renderRoom();
+      });
       panel.querySelectorAll('[data-shape]').forEach(b=>{
         b.addEventListener('click', ()=>{ t.shape = b.dataset.shape; scheduleSaveLayout(); renderAll(); });
       });
+      const rotateBtn = panel.querySelector('#rotateBtn');
+      if(rotateBtn){
+        rotateBtn.addEventListener('click', ()=>{
+          t.rotated = !t.rotated;
+          scheduleSaveLayout(); renderAll();
+        });
+      }
       panel.querySelectorAll('[data-seat-step]').forEach(b=>{
         b.addEventListener('click', ()=>{
           const d = parseInt(b.dataset.seatStep,10);
@@ -711,8 +761,8 @@
     panel.innerHTML = `
       <div class="panel-head">
         <div>
-          <div class="panel-title">${t.id}</div>
-          <div class="panel-sub">${floorMeta(floorId).label} · ${t.shape==='circle'?'Round':'Rectangular'} · Seats ${t.seats}</div>
+          <div class="panel-title">${escapeHtml(t.name || t.id)}</div>
+          <div class="panel-sub">${t.name ? t.id + ' · ' : ''}${floorMeta(floorId).label} · ${t.shape==='circle'?'Round':'Rectangular'} · Seats ${t.seats}</div>
         </div>
         <button class="close-x" aria-label="Close">&times;</button>
       </div>
